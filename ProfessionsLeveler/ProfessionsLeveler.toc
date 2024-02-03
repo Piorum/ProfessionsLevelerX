@@ -7,7 +7,6 @@ CraftableItems/Blacksmithing.lua
 CraftableItems/Cooking.lua
 CraftableItems/Enchanting.lua
 CraftableItems/Engineering.lua
-CraftableItems/First Aid.lua
 CraftableItems/Leatherworking.lua
 CraftableItems/Mining.lua
 CraftableItems/Tailoring.lua
