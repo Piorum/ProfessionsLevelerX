@@ -3,6 +3,7 @@ A "Working" WoW addon for SoD that calculates effective craft costs for trainabl
 
 MAJOR WIP
 --Need to add profession items to the profession.lua files
+--Iteratively update crafted items that required other crafted items as materials to use the crafted items if they are cheaper to craft
 
 -Minor/Long-Term
 --Need to make more user friendly?
