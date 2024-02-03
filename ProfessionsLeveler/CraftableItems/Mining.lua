@@ -1,5 +1,5 @@
 local _, T = ...
-T[8] = {
+T[7] = {
     ["Example"] = {
         trainableLevel = 301,
         yellowLevel = 400,

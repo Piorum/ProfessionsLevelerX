@@ -8,9 +8,14 @@ local cookingSkill = nil
 
 -- Load craftable items for each profession
 local _, T = ...
-local professionsList = {"Alchemy", "Blacksmithing", "Cooking", "Enchanting", "Engineering", "First Aid", "Leatherworking", "Mining", "Tailoring"}
+local professionsList = {"Alchemy", "Blacksmithing", "Cooking", "Enchanting", "Engineering", "Leatherworking", "Mining", "Tailoring"}
 
-local craftableItemsTable = {}  -- Table to store craftable items for all professions
+knownItemPrices = {}
+knownItemPrices = T[9]
+
+
+
+craftableItemsTable = {}  -- Table to store craftable items for all professions
 
 for i, profession in ipairs(professionsList) do
     craftableItemsTable[profession] = T[i]
@@ -24,25 +29,38 @@ requiredItems = {}
 AHIndex = 1
 scannedItems = {}
 scanning = false
+currentItem = nil
 
 currentSelectedProf = nil
+
+targetLevel = 75
 
 function round(number, decimals)
     return (("%%.%df"):format(decimals)):format(number)
 end
 
 function formatCurrency(amount)
+    local isNegative = false
+    if amount < 0 then
+        isNegative = true
+        amount = -amount
+    end
+
     local gold = math.floor(amount / 10000)
     local silver = math.floor((amount % 10000) / 100)
     local copper = amount % 100
 
     local result = ""
+    
+    if isNegative then
+        result = "-"
+    end
 
     if gold > 0 then
         result = result .. gold .. "g "
     end
 
-    if silver > 0 then
+    if silver > 0 or result ~= "" then
         result = result .. silver .. "s "
     end
 
@@ -81,6 +99,7 @@ local function calculateCost(profN, itemN)
 			end
 		end
 	end
+	totalCost = totalCost - craftableItemsTable[profN][itemN].vendor
 	return totalCost
 end
 
@@ -112,8 +131,9 @@ local function RefreshItemMenu()
         local tLevel = craftableItemsTable[selectedProfession][craftableItem].trainableLevel
         local yLevel = craftableItemsTable[selectedProfession][craftableItem].yellowLevel
         local gLevel = craftableItemsTable[selectedProfession][craftableItem].greyLevel
-
-        if skillLevel >= tLevel and skillLevel < gLevel then
+		
+		--filters for all items that can give you a skill up between your current skill level and target skill level
+        if skillLevel < gLevel and targetLevel > tLevel then
             local skillUpChance = (gLevel - skillLevel) / (gLevel - yLevel)
             if skillUpChance > 1 then
                 skillUpChance = 1
@@ -131,7 +151,7 @@ local function RefreshItemMenu()
                 end
             end
 
-            -- Check if itemPrices data is needed
+            --awful, literally the worst
             local needPriceData = false
             for zed, _ in ipairs(requiredItems) do
                 if itemPrices[zed] == nil then
@@ -149,7 +169,7 @@ local function RefreshItemMenu()
                     textSet = true
                 end
             else
-                local effectiveCost = calculateCost(selectedProfession, craftableItem) / skillUpChance
+                local effectiveCost = calculateCost(selectedProfession, craftableItem) / skillUpChance 
 				table.insert(cItemsList, craftableItem)
 				table.insert(cItemsListPrices, effectiveCost)
             end
@@ -221,6 +241,7 @@ end
 local function QueryNextItem()
     if AHIndex <= #requiredItems then
         local itemName = requiredItems[AHIndex]
+		currentItem = itemName
 		if not scannedItems[itemName] then
 			QueryAuctionItems(itemName)
 			scannedItems[itemName] = true
@@ -229,9 +250,6 @@ local function QueryNextItem()
 			QueryNextItem()
 		end
 	else
-		--for sd, fd in ipairs(requiredItems) do
-		--	print(requiredItems[sd] .. " " .. itemPrices[sd])
-		--end
 		if scanning == true then
 			print("Scan Finished")
 			RefreshItemMenu()
@@ -430,10 +448,21 @@ local function CreateCraftableItemsFrame()
 		--for sd, fd in ipairs(requiredItems) do
 		--	print(requiredItems[sd])
 		--end
+		
+		for lolk, itemX in ipairs(requiredItems) do
+			for itemNameSD, itemDataSD in pairs(knownItemPrices) do
+				if itemNameSD == itemX then
+					itemPrices[lolk] = itemDataSD.price
+					scannedItems[itemNameSD] = true
+				end
+			end
+		end
+		
 		print("Scan Started")
 		scanning = true
 		QueryNextItem()
-		-- Code for manual price input
+		
+		-- Old code for manual price input
 		--for i, item in ipairs(requiredItems) do
 		--	if itemPrices[i] == nil then
 		--		itemsFrame.inputFrame.clearBoxes()
@@ -453,6 +482,7 @@ local function CreateCraftableItemsFrame()
 		if itemPrices == {} then
 			requiredItems = {}
 		end
+		RefreshItemMenu()
     end)
 	
 	-- Function to clear labels
@@ -543,45 +573,35 @@ local frame = CreateFrame("Frame")
 frame:RegisterEvent("AUCTION_ITEM_LIST_UPDATE")
 frame:SetScript("OnEvent", function(self, event, ...)
     if event == "AUCTION_ITEM_LIST_UPDATE" then
-        if scanning == true then
-            local lowestPrice = math.huge
-            local buyoutPrice
-            local count
-            local name
-
-			if GetNumAuctionItems("list") == 0 then
-				local nameSet = false
-				for sdx, jdk in ipairs(requiredItems) do
-					if not scannedItems[jdk] and not nameSet then
-						name = requiredItems[sdx - 1]
-						lowestPrice = 10000000
-						nameSet = true
+		if scanning == true then
+			local lowestPrice = math.huge
+			local buyoutPrice
+			local count
+			local name = currentItem
+		
+			for i = 1, GetNumAuctionItems("list") do
+				_, _, count, _, _, _, _, _, _, buyoutPrice = GetAuctionItemInfo("list", i)
+				local realPrice = buyoutPrice / count
+				if buyoutPrice and realPrice < lowestPrice then
+					lowestPrice = realPrice
+				end
+			end
+		
+			if name then
+				for op, jkl in ipairs(requiredItems) do
+					if jkl == name then
+						if lowestPrice == math.huge then
+							lowestPrice = 1000000
+						end
+						itemPrices[op] = round(lowestPrice, 0)
 					end
 				end
 			end
-            for i = 1, GetNumAuctionItems("list") do
-                name, _, count, _, _, _, _, _, _, buyoutPrice = GetAuctionItemInfo("list", i)
-                local realPrice = buyoutPrice / count
-                if buyoutPrice and realPrice < lowestPrice then
-                    lowestPrice = realPrice
-                end
-            end
+		
+			-- After processing, trigger the next query
+			OnAuctionUpdate()
+		end
 
-            if name then
-                for op, jkl in ipairs(requiredItems) do
-                    if jkl == name then
-                        if lowestPrice == math.huge then
-                            lowestPrice = 1000000
-                        end
-                        itemPrices[op] = round(lowestPrice, 0)
-                        --print("Updating itemPrices for", name, "to", lowestPrice)
-                    end
-                end
-            end
-
-            -- After processing, trigger the next query
-            OnAuctionUpdate()
-        end
     end
 end)
 

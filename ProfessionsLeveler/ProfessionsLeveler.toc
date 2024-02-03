@@ -10,5 +10,6 @@ CraftableItems/Engineering.lua
 CraftableItems/Leatherworking.lua
 CraftableItems/Mining.lua
 CraftableItems/Tailoring.lua
+knownItemPrices.lua
 
 ProfessionsLeveler.lua
